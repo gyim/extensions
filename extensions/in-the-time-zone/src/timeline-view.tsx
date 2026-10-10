@@ -2,14 +2,15 @@ import { Action, ActionPanel, Detail, environment, Icon, Keyboard } from "@rayca
 import { DateTime } from "luxon";
 import { useMemo } from "react";
 import { lookupCity } from "./citySearch";
-import { generateTimelineMarkdown } from "./timeline-renderer";
+import { generateTimelineSvg, TimelineConfig } from "./timeline-renderer";
 import { getSunTimes, SunTimes } from "./sun-times";
-import { getTimezone } from "./timezones";
+import { getSystemTimezone, getTimezone } from "./timezones";
 
 export interface TimelineViewProps {
   baseISO: string;
   nowISO: string;
   baseCityId: string | null;
+  localCityId: string;
   selectedZoneIds: string[];
   isLoading: boolean;
   onShiftMinutes: (delta: number) => void;
@@ -70,6 +71,7 @@ export function TimelineView(props: TimelineViewProps) {
     baseISO,
     nowISO,
     baseCityId,
+    localCityId,
     selectedZoneIds,
     isLoading,
     onShiftMinutes,
@@ -89,7 +91,7 @@ export function TimelineView(props: TimelineViewProps) {
     return `${sign}${abs} Minutes`;
   }
 
-  const baseZoneId = baseCityId ? getTimezone(baseCityId) : Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const baseZoneId = baseCityId ? getTimezone(baseCityId) : getSystemTimezone();
   const baseTime = useMemo(() => DateTime.fromISO(baseISO).setZone(baseZoneId), [baseISO, baseZoneId]);
   const appearance = environment.appearance;
 
@@ -114,17 +116,14 @@ export function TimelineView(props: TimelineViewProps) {
     return result;
   }, [sunDaysKey, timeFormat]);
 
-  const markdown = useMemo(() => {
-    return generateTimelineMarkdown({
-      baseISO,
-      baseCityId,
-      selectedZoneIds,
-      timeFormat,
-      appearance,
-      nowISO,
-      sunTimes,
-    });
-  }, [baseISO, baseCityId, selectedZoneIds, timeFormat, appearance, nowISO, sunTimes]);
+  const config: TimelineConfig = useMemo(
+    () => ({ baseISO, baseCityId, localCityId, selectedZoneIds, timeFormat, appearance, nowISO, sunTimes }),
+    [baseISO, baseCityId, localCityId, selectedZoneIds, timeFormat, appearance, nowISO, sunTimes],
+  );
+  const markdown = useMemo(
+    () => `![Timeline](data:image/svg+xml;base64,${Buffer.from(generateTimelineSvg(config)).toString("base64")})`,
+    [config],
+  );
 
   return (
     <Detail
